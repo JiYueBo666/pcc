@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal, Generator, List, Dict
 from dataclasses import dataclass, asdict
 from loguru import logger
-from config import config
+from src.config import config
 
 @dataclass
 class MemoryItem:
