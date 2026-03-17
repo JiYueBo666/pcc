@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local_memory_tool"
+version = "0.1.0"
+description = "工程化版本地文本记忆小工具"
+authors = [{"name": "Your Name", "email": "your@email.com"}]
+dependencies = [
+  "python-dotenv>=1.0.0",  # 环境变量配置
+  "typing-extensions>=4.0.0",  # 类型注解兼容
+  "loguru>=0.7.0"  # 日志管理
+]
+[project.scripts]
+memory-tool = "src.cli:main"  # 命令行入口脚本
+
+[tool.setuptools.packages.find]
+where = ["src"]
