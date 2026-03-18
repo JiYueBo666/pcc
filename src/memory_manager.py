@@ -51,13 +51,13 @@ class MemoryManager:
             raise ValueError("会话ID不能为空")
         if role not in ["user", "system", "assistant"]:
             raise ValueError(f"非法角色：{role}，仅支持user/system")
-        
+
         #创建记忆项
         memory=MemoryItem(
             content=content.strip(),
             session_id=session_id,
             role=role,
-            created_at=datetime.datetime.now(datetime.timezone.utc)
+            created_at=datetime.datetime.now(datetime.timezone.utc),
         )
 
         #写入文件 json line 追加

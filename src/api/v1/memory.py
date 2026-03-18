@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from src.memory_manager import MemoryManager, MemoryItem
+from src.userInfo import UserSessionManager
 from src.schemas.memory import (
     MemoryCreateRequest,
     MemoryQueryRequest,
@@ -10,7 +11,7 @@ from src.schemas.memory import (
     MemoryListResponse,
     MemoryOperateResponse
 )
-from src.api.deps import get_memory_manager
+from src.api.deps import get_memory_manager,get_user_manager
 
 # 创建路由实例（v1版本）
 router = APIRouter(prefix="/v1/memory", tags=["memory"])
@@ -19,15 +20,20 @@ router = APIRouter(prefix="/v1/memory", tags=["memory"])
 @router.post("/", response_model=MemoryOperateResponse, summary="新增记忆")
 def create_memory(
     req: MemoryCreateRequest = Body(...),
-    mm: MemoryManager = Depends(get_memory_manager)
+    username:str=Body(None,description='绑定用户名'),
+    mm: MemoryManager = Depends(get_memory_manager),
+    usm: UserSessionManager = Depends(get_user_manager),
 ):
     try:
         # 调用阶段1的核心逻辑
         memory = mm.add_memory(
             content=req.content,
             session_id=req.session_id,
-            role=req.role
+            role=req.role,
         )
+
+        if username and username.strip():
+            usm.bind_session_to_user(username,req.session_id)
         return MemoryOperateResponse(
             code=200,
             message="记忆新增成功",

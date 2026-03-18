@@ -16,7 +16,6 @@ class MemoryCreateRequest(BaseModel):
     content: str = Field(..., min_length=1, description="记忆内容，不能为空")
     session_id: str = Field(..., min_length=1, description="会话ID，不能为空")
     role: Literal["user", "system"] = Field("user", description="角色，仅支持user/system")
-
 class MemoryQueryRequest(BaseModel):
     """查询记忆请求模型（GET请求用Query参数，这里定义参数约束）"""
     session_id:str= Field(..., min_length=1, description="会话ID，不能为空")

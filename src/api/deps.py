@@ -1,8 +1,11 @@
 from __future__ import annotations
 from src.memory_manager import MemoryManager
+from src.userInfo import UserSessionManager
 
 # 单例模式：保证整个API服务中只有一个MemoryManager实例
 _memory_manager: MemoryManager | None = None
+_user_manager:UserSessionManager|None=None
+
 
 def get_memory_manager() -> MemoryManager:
     """获取MemoryManager单例，作为FastAPI依赖注入"""
@@ -10,3 +13,9 @@ def get_memory_manager() -> MemoryManager:
     if _memory_manager is None:
         _memory_manager = MemoryManager()
     return _memory_manager
+
+def get_user_manager():
+    global _user_manager
+    if _user_manager is None:
+        _user_manager = UserSessionManager()
+    return _user_manager
