@@ -10,6 +10,8 @@ from typing import Literal, Generator, List, Dict
 from dataclasses import dataclass, asdict
 from loguru import logger
 from src.config import config
+import asyncio
+
 
 @dataclass
 class MemoryItem:
@@ -37,10 +39,11 @@ class MemoryManager:
     def __init__(self):
         self.storage_dir=config.MEMORY_STORAGE_DIR
         self.max_message=config.MAX_MESSAGES_PER_SESSION
+        self.thread_pool = asyncio.Semaphore(10)  # 限制最多10个文件操作并发
     def _get_session_file(self,session_id:str):
         return self.storage_dir / f'{session_id}.jsonl'
     
-    def add_memory(self,content:str,session_id:str,role:Literal['user','assistant']):
+    def _add_memory_sync(self,content:str,session_id:str,role:Literal['user','assistant']):
         '''
         添加记忆
         '''
@@ -75,7 +78,7 @@ class MemoryManager:
         except OSError as e:
             logger.error(f"会话{session_id}添加记忆失败，错误信息{e}")
             raise RuntimeError(f"会话{session_id}添加记忆失败，错误信息{e}")
-    def get_memories(self,session_id:str):
+    def _get_memories_sync(self,session_id:str):
         session_file=self._get_session_file(session_id)
         if not session_file.exists():
             logger.debug(f"会话{session_id}不存在")
@@ -95,7 +98,7 @@ class MemoryManager:
         except OSError as e:
             logger.error(f"会话{session_id}读取记忆失败，错误信息{e}")
             raise RuntimeError(f"会话{session_id}读取记忆失败，错误信息{e}")
-    def delete_memories(self,session_id:str,delete_all:bool=False,content:str=None):
+    def _delete_memories_sync(self,session_id:str,delete_all:bool=False,content:str=None):
         session_file=self._get_session_file(session_id)
         if not session_file.exists():
             logger.info(f"会话{session_id}不存在,无需删除")
@@ -132,3 +135,18 @@ class MemoryManager:
         with open(session_file, "w", encoding="utf-8") as f:
             for mem in remaining:
                 f.write(json.dumps(mem.to_dict(), ensure_ascii=False) + "\n")
+    
+    async def add_memory(self,content:str,session_id,role:Literal['user','assistant','system']):
+        async with self.thread_pool:#控制并发
+            return await asyncio.to_thread(
+                self._add_memory_sync,
+                content=content,
+                session_id=session_id,
+                role=role,
+            )
+    async def get_memories(self,session_id:str):
+        async with self.thread_pool:
+            return await asyncio.to_thread(
+                self._get_memories_sync,
+                session_id=session_id,
+            )
