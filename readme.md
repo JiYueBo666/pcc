@@ -35,3 +35,42 @@
 
 > （注：文档部分内容可能由 AI 生成）
 
+## 当前推荐架构
+
+围绕“Agent 交互”作为项目主链，建议后续都按下面这条路径扩展：
+
+`API Router -> Service -> Repository -> File Storage / Agent Runtime`
+
+推荐职责划分：
+
+- `src/api/v1`
+  只处理 HTTP 协议细节、请求参数、响应格式、Cookie。
+- `src/api/deps.py`
+  统一依赖注入，集中创建 service/repository 单例。
+- `src/services`
+  承担业务编排，是后续替代 `manager` 的主入口。
+- `src/repositories`
+  只负责数据读写，不放业务判断。
+- `src/agents`
+  负责 LLM、工具、消息拼装和 agent 执行。
+- `src/agent`
+  兼容旧导入路径，后续不要继续新增实现。
+- `src/memory_manager.py` / `src/userInfo.py`
+  旧阶段遗留实现，建议逐步下线，只保留兼容用途。
+- `src/config.py` / `src/core/deps.py`
+  兼容旧入口，正式实现分别以 `src/core/config.py`、`src/api/deps.py` 为准。
+
+当前建议的核心调用链：
+
+1. `POST /api/v1/agent/chat`
+2. `AgentService`
+3. `MemoryService`
+4. `MemoryRepository`
+5. `agents.AgentManager`
+
+这样做的好处：
+
+- `agent` 成为唯一核心入口，避免路由直接操作底层组件。
+- memory、session、user 能作为独立能力复用，不和 HTTP 耦合。
+- 旧 `manager` 可以平滑迁移，不需要一次性全删。
+

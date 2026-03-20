@@ -1,13 +1,12 @@
+from fastapi import Depends
 from src.agent.model_selection import resolve_agent_model
 from src.tools.file_tools import _read_file
 from langchain.messages import HumanMessage,AIMessage,SystemMessage
 from loguru import logger
-from src.memory_manager import MemoryManager,MemoryItem
+from src.memory.memory_manager import MemoryManager,MemoryItem
 class AgentManager:
-    def __init__(self):
-        self.memory_manager = MemoryManager()
-
-
+    def __init__(self,memory_manager:MemoryManager):
+        self.memory_manager = memory_manager
     def get_llm(self,agent_id:str='main'):
         #通过agent id，从缓存中获取llm，或者创建llm
         #单llm暂不考虑agent id，统一为main

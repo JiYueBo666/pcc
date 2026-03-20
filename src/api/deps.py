@@ -1,28 +1,20 @@
 from __future__ import annotations
-from src.memory_manager import MemoryManager
-from src.userInfo import UserSessionManager
+from fastapi import Depends
+from functools import lru_cache
 from src.agent.agent_manager import AgentManager
+from src.memory.memory_manager import MemoryManager
+from src.sessions.session_manager import SessionManager
 
-# 单例模式：保证整个API服务中只有一个MemoryManager实例
-_memory_manager: MemoryManager | None = None
-_user_manager:UserSessionManager|None=None
-_agent_manager:AgentManager|None=None
-
-def get_memory_manager() -> MemoryManager:
+@lru_cache
+def get_memory_manager():
     """获取MemoryManager单例，作为FastAPI依赖注入"""
-    global _memory_manager
-    if _memory_manager is None:
-        _memory_manager = MemoryManager()
-    return _memory_manager
+    return MemoryManager()
+@lru_cache
+def get_agent_manager(memory_manager:MemoryManager = Depends(get_memory_manager)):
 
-def get_user_manager():
-    global _user_manager
-    if _user_manager is None:
-        _user_manager = UserSessionManager()
-    return _user_manager
-
-def get_agent_manager():
-    global _agent_manager
-    if _agent_manager is None:
-        _agent_manager = AgentManager()
+    _agent_manager=AgentManager(memory_manager)
     return _agent_manager
+@lru_cache
+def get_session_manager():
+    _session_manager = SessionManager()
+    return _session_manager

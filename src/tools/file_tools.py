@@ -4,9 +4,6 @@ import pathlib
 from pathlib import Path
 import os
 
-class ReadFileInput(BaseModel):
-    path:str=Field(description="要读取的文件路径")
-
 @tool('read_file')
 def _read_file(path: str) -> str:
     """
