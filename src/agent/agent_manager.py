@@ -1,10 +1,11 @@
 from src.agent.model_selection import resolve_agent_model
 from src.tools.file_tools import _read_file
-from langchain.messages import HumanMessage
+from langchain.messages import HumanMessage,AIMessage,SystemMessage
 from loguru import logger
+from src.memory_manager import MemoryManager,MemoryItem
 class AgentManager:
     def __init__(self):
-        pass
+        self.memory_manager = MemoryManager()
 
 
     def get_llm(self,agent_id:str='main'):
@@ -37,6 +38,13 @@ class AgentManager:
         返回:
             异步生成器，产生流式响应数据
         """
+        # 保存用户消息到memory
+        await self.memory_manager.add_memory(
+            content=message,
+            session_id=session_id,
+            role="user"
+        )
+
         # 构建工具列表
         tools = self._build_tools(agent_id, session_id)
 
@@ -44,8 +52,13 @@ class AgentManager:
         # TODO: 获取系统提示词
         system_prompt = "You are a helpful assistant with access to tools."
 
-        from langchain.agents import create_agent
+        #获取历史记录
+        history=list(await self.memory_manager.get_memories(session_id=session_id))
 
+        # 构建消息列表
+        messages = self._build_messages(history,message)
+
+        from langchain.agents import create_agent
         # 获取LLM实例
         llm = self.get_llm(agent_id)
 
@@ -56,8 +69,8 @@ class AgentManager:
             system_prompt=system_prompt,
         )
 
-        # 创建消息
-        messages = [HumanMessage(content=message)]
+        # 用于收集完整的助手回复
+        full_assistant_response = ""
 
         # 执行流式调用处理事件
         try:
@@ -73,6 +86,7 @@ class AgentManager:
                     chunk = event.get("data", {}).get("chunk")
                     if chunk and hasattr(chunk, "content") and chunk.content:
                         content = chunk.content
+                        full_assistant_response += content
                         yield {
                             "type": "token",
                             "content": content
@@ -109,3 +123,25 @@ class AgentManager:
                 "type": "error",
                 "error": str(e)
             }
+
+        # 保存助手回复到memory
+        if full_assistant_response:
+            await self.memory_manager.add_memory(
+                content=full_assistant_response,
+                session_id=session_id,
+                role="assistant"
+            )
+        logger.info(f"full_assistant_response:{full_assistant_response}")
+    def _build_messages(self,history:list[MemoryItem],new_message:str):
+        messages=[]
+        for msg in history:
+            role=msg.role
+            content=msg.content
+            if role == "user":
+                messages.append(HumanMessage(content=content))
+            elif role == "assistant":
+                messages.append(AIMessage(content=content))
+            elif role == "system":
+                messages.append(SystemMessage(content=content))
+        messages.append(HumanMessage(content=new_message))
+        return messages

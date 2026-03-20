@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 class ChatRequest(BaseModel):
     """聊天请求模型"""
     message: str = Field(..., min_length=1, description="用户消息内容")
-    session_id: str = Field(..., min_length=1, description="会话ID")
+    session_id: Optional[str] = Field(None, description="会话ID，不提供时自动创建")
     agent_id: str = Field("main", description="Agent ID，默认为main")
     stream: bool = Field(False, description="是否使用流式响应")
 

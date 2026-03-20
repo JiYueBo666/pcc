@@ -1,11 +1,12 @@
 from __future__ import annotations
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from src.api.deps import get_agent_manager
 from src.agent.agent_manager import AgentManager
 from src.schemas.agent import ChatRequest, ChatResponse, ChatStreamResponse
 import json
+import uuid
 
 # 创建路由实例（v1版本）
 router = APIRouter(prefix="/v1/agent", tags=["agent"])
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/v1/agent", tags=["agent"])
 @router.post('/chat', summary="Chat with agent")
 async def chat(
     message: str = Body(..., embed=False, description="用户消息内容"),
-    session_id: str = Body(..., description="会话ID"),
+    session_id: Optional[str] = Body(None, description="会话ID，不提供时自动创建"),
     agent_id: str = Body("main", description="Agent ID"),
     stream: bool = Body(False, description="是否使用流式响应"),
     agent_manager: AgentManager = Depends(get_agent_manager)
@@ -23,7 +24,7 @@ async def chat(
 
     参数:
         message: 用户消息内容
-        session_id: 会话ID
+        session_id: 会话ID，不提供时自动创建
         agent_id: Agent ID，默认为main
         stream: 是否使用流式响应，默认为False
 
@@ -33,6 +34,10 @@ async def chat(
     message = message.strip()
     if not message:
         raise HTTPException(status_code=400, detail="Message is empty")
+
+    # 如果未提供session_id，自动生成一个新的
+    if not session_id:
+        session_id = str(uuid.uuid4())
 
     # 如果请求流式响应
     if stream:

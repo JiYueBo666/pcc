@@ -67,7 +67,7 @@ class MemoryManager:
         session_file=self._get_session_file(session_id)
         try:
             #检查会话消息数
-            existing_count=len(list(self.get_memories(session_id)))
+            existing_count=len(list(self._get_memories_sync(session_id)))
             if existing_count>=self.max_message:
                 logger.warning(f"会话{session_id}消息数已达到最大值{self.max_message}，删除最早消息")
                 self._truncate_oldest_message(session_id)
@@ -112,7 +112,7 @@ class MemoryManager:
                 if not content:
                     raise ValueError("删除记忆时必须指定content")
                 remaining_memories=[]
-                for memory in self.get_memories(session_id):
+                for memory in self._get_memories_sync(session_id):
                     if content not in memory.content:
                         remaining_memories.append(memory)
                 # 重新写入
@@ -126,7 +126,7 @@ class MemoryManager:
             raise RuntimeError(f"删除记忆失败：{str(e)}") from e
     def _truncate_oldest_message(self,session_id:str):
         session_file = self._get_session_file(session_id)
-        memories = list(self.get_memories(session_id))
+        memories = list(self._get_memories_sync(session_id))
         if len(memories) == 0:
             return
         
