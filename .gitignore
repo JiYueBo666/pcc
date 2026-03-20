@@ -1,0 +1,5 @@
+.env
+*.pyc
+.idea/       # WebStorm/IDEA
+.vscode/     # VSCode
+*.swp        # Vim 临时文件
