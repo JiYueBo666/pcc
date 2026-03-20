@@ -19,6 +19,13 @@ class Config:
     API_DEBUG = os.getenv('API_DEBUG', 'True').lower() == 'true'  # 调试模式
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',')  # 跨域允许的源
 
+    #新增agent配置
+    OPENAI_KEY=os.getenv('OPENAI_KEY')
+    BASE_URL=os.getenv('BASE_URL')
+    TEMPERATURE=os.getenv('TEMPERATURE')
+
+
+
     @classmethod
     def init_dirs(cls):
         # 原有逻辑（不变）

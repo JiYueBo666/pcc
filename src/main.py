@@ -13,6 +13,7 @@ app = FastAPI(
     debug=config.API_DEBUG
 )
 
+
 # 配置跨域中间件
 app.add_middleware(
     CORSMiddleware,
