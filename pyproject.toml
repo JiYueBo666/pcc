@@ -10,7 +10,13 @@ authors = [{"name": "Your Name", "email": "your@email.com"}]
 dependencies = [
   "python-dotenv>=1.0.0",  # 环境变量配置
   "typing-extensions>=4.0.0",  # 类型注解兼容
-  "loguru>=0.7.0"  # 日志管理
+  "loguru>=0.7.0",  # 日志管理
+  "fastapi>=0.104.0",  # Web框架
+  "uvicorn>=0.24.0",  # ASGI服务器
+  "pydantic>=2.0.0",  # 数据验证
+  "langchain>=0.1.0",  # LangChain框架
+  "langchain-openai>=0.0.5",  # LangChain OpenAI集成
+  "langchain-core>=0.1.0"  # LangChain核心
 ]
 [project.scripts]
 memory-tool = "src.cli:main"  # 命令行入口脚本
