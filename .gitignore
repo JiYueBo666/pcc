@@ -4,3 +4,5 @@
 .vscode/     # VSCode
 *.swp        # Vim 临时文件
 .vscode/settings.json
+*.log
+.log/
