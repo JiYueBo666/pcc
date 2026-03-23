@@ -18,3 +18,17 @@ def get_agent_manager(memory_manager:MemoryManager = Depends(get_memory_manager)
 def get_session_manager():
     _session_manager = SessionManager()
     return _session_manager
+
+from src.sub_agents.task_registry import TaskRegistry
+from src.sub_agents.subagent_manager import SubAgentManager
+
+@lru_cache
+def get_task_registry():
+    return TaskRegistry()
+
+@lru_cache
+def get_subagent_manager(
+    agent_manager: AgentManager = Depends(get_agent_manager),
+    task_registry: TaskRegistry = Depends(get_task_registry),
+):
+    return SubAgentManager(agent_manager=agent_manager, task_registry=task_registry)
