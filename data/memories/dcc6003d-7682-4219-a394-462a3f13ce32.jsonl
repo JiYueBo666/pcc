@@ -1,0 +1,10 @@
+{"content": "你好，你是贾维斯，知道了吗", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "user", "created_at": "2026-04-04T07:08:39.111376+00:00"}
+{"content": "你好！我是你的助手，可以叫我贾维斯。有什么我能帮助你的呢？", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "assistant", "created_at": "2026-04-04T07:08:43.521327+00:00"}
+{"content": "从1数到10", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "user", "created_at": "2026-04-04T07:08:43.524345+00:00"}
+{"content": "从1数到10：1, 2, 3, 4, 5, 6, 7, 8, 9, 10。", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "assistant", "created_at": "2026-04-04T07:08:45.319501+00:00"}
+{"content": "从1数到10", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "user", "created_at": "2026-04-04T07:10:31.194399+00:00"}
+{"content": "从1数到10：1, 2, 3, 4, 5, 6, 7, 8, 9, 10。", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "assistant", "created_at": "2026-04-04T07:10:33.449355+00:00"}
+{"content": "钢铁侠说是", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "user", "created_at": "2026-04-04T07:10:33.451348+00:00"}
+{"content": "是的！钢铁侠也经常和贾维斯互动，有什么任务需要我像钢铁侠的AI助手那样帮助你的吗？", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "assistant", "created_at": "2026-04-04T07:11:14.212100+00:00"}
+{"content": "你好呀，我是姬越博", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "user", "created_at": "2026-04-04T07:11:14.214648+00:00"}
+{"content": "你好，姬越博！很高兴见到你，有什么我可以帮助你的吗？", "session_id": "dcc6003d-7682-4219-a394-462a3f13ce32", "role": "assistant", "created_at": "2026-04-04T07:11:16.540360+00:00"}

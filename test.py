@@ -1,24 +1,20 @@
+from dataclasses import dataclass
+@dataclass
+class T:
+    a: int
 
-def agent_loop(query):
-    messages=[{"role":"user","content":query}]
-    while True:
-        response=client.messages.create(
-            model=MODEL, system=SYSTEM, messages=messages,
-            tools=TOOLS, max_tokens=8000,
-        )
 
-        messages.append({"role":"assistant","content":response.content})
 
-        if response.stop_reason!="tool_use":
-            return
-        results=[]
-        for block in response.content:
-            if block.type=="tool_use":
-                output=run_bash(block.input['command'])
-                results.append(
-                    {
-                    "type":"tool_result",
-                    "tool_use_id":block.id,
-                    "content":output
-                })
-        messages.append({"role":"tool","content":results})
+def func(obj:T):
+    obj.a=3
+def func2(obj:int):
+    obj=3
+
+if __name__ == '__main__':
+    t = T(1)
+    func(t)
+    print(t.a)
+
+    a=1
+    func2(a)
+    print(a)

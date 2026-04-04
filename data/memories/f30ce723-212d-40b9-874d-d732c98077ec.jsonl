@@ -1,0 +1,4 @@
+{"content": "1+1是几，分两步说", "session_id": "f30ce723-212d-40b9-874d-d732c98077ec", "role": "user", "created_at": "2026-04-04T05:51:18.130078+00:00"}
+{"content": "第一步：将两个整数 1 和 1 相加。\n\n第二步：得到的结果是 2。\n\n所以，1+1 等于 2。", "session_id": "f30ce723-212d-40b9-874d-d732c98077ec", "role": "assistant", "created_at": "2026-04-04T05:51:22.171277+00:00"}
+{"content": "从1数到10", "session_id": "f30ce723-212d-40b9-874d-d732c98077ec", "role": "user", "created_at": "2026-04-04T05:51:22.175264+00:00"}
+{"content": "从1数到10的顺序是：1, 2, 3, 4, 5, 6, 7, 8, 9, 10。", "session_id": "f30ce723-212d-40b9-874d-d732c98077ec", "role": "assistant", "created_at": "2026-04-04T05:51:23.469403+00:00"}

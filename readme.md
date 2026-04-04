@@ -29,50 +29,29 @@
 
 ✅ 阶段 5：添加简单子agent协作。（读取对话文件，构建上下文后交给AI）
 
+✅ 阶段 6：添加排队服务，能够终止任务
+
 ### 开发规范
 
-* 分支管理：每个阶段对应一个功能分支（格式：`feature/阶段名称`），开发完成后合并到 main 分支
-* 工程化要求：遵循「分层解耦、可配置化、异常处理、单元测试」原则，为后续扩展预留接口
-* 文档要求：每个阶段完成后，补充对应功能的使用说明和核心代码注释
+#### 阶段5进度：
 
-> （注：文档部分内容可能由 AI 生成）
+接收请求-->FastAPI接口-->AgentManager-->Build Memory-->agent-->response-->return
+
+问题导向：当一个session在执行过程中，用户再一次发消息会怎么样？
+
+#### 阶段6目标：
+
+运行时治理。
+
+将过程抽象为状态机
+
+1. 如果用户发消息，会话空闲。则进行响应
+2. 如果会话忙，那么当前运行的任务是谁？
+3. 新消息来了，放哪？
+4. 用户中断，应该取消谁？
 
 ## 当前推荐架构
 
 围绕“Agent 交互”作为项目主链，建议后续都按下面这条路径扩展：
 
-`API Router -> Service -> Repository -> File Storage / Agent Runtime`
-
-推荐职责划分：
-
-- `src/api/v1`
-  只处理 HTTP 协议细节、请求参数、响应格式、Cookie。
-- `src/api/deps.py`
-  统一依赖注入，集中创建 service/repository 单例。
-- `src/services`
-  承担业务编排，是后续替代 `manager` 的主入口。
-- `src/repositories`
-  只负责数据读写，不放业务判断。
-- `src/agents`
-  负责 LLM、工具、消息拼装和 agent 执行。
-- `src/agent`
-  兼容旧导入路径，后续不要继续新增实现。
-- `src/memory_manager.py` / `src/userInfo.py`
-  旧阶段遗留实现，建议逐步下线，只保留兼容用途。
-- `src/config.py` / `src/core/deps.py`
-  兼容旧入口，正式实现分别以 `src/core/config.py`、`src/api/deps.py` 为准。
-
-当前建议的核心调用链：
-
-1. `POST /api/v1/agent/chat`
-2. `AgentService`
-3. `MemoryService`
-4. `MemoryRepository`
-5. `agents.AgentManager`
-
-这样做的好处：
-
-- `agent` 成为唯一核心入口，避免路由直接操作底层组件。
-- memory、session、user 能作为独立能力复用，不和 HTTP 耦合。
-- 旧 `manager` 可以平滑迁移，不需要一次性全删。
-
+`API Router -> RuntimeManager -> SessionManager -> AgentManager -> Agent`
