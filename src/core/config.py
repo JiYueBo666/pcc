@@ -36,7 +36,7 @@ class Config:
         # 配置日志
         logger.remove()
         logger.add(
-            './logs/memory_tool.log',
+            './logs/system.log',
             level=cls.LOG_LEVEL,
             rotation='10MB',
             retention='7 days',

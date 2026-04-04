@@ -50,6 +50,7 @@ class SubAgentManager:
             tasks:List[str],
             agent_id:str='main',
     ):
+        #收集协程对象
         coroutines=[
             self.run_subtask(
                 parent_session_id=parent_session_id,

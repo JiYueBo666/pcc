@@ -4,6 +4,7 @@ from functools import lru_cache
 from src.agent.agent_manager import AgentManager
 from src.memory.memory_manager import MemoryManager
 from src.sessions.session_manager import SessionManager
+from src.runtime.message_queue import MessageQueueManager
 
 @lru_cache
 def get_memory_manager():
@@ -32,3 +33,10 @@ def get_subagent_manager(
     task_registry: TaskRegistry = Depends(get_task_registry),
 ):
     return SubAgentManager(agent_manager=agent_manager, task_registry=task_registry)
+
+@lru_cache
+def get_message_queue_manager(
+    agent_manager: AgentManager = Depends(get_agent_manager),
+    memory_manager: MemoryManager = Depends(get_memory_manager),
+):
+    return MessageQueueManager(agent_manager=agent_manager, memory_manager=memory_manager)

@@ -130,7 +130,7 @@ class AgentManager:
                 session_id=session_id,
                 role="assistant"
             )
-        logger.info(f"full_assistant_response:{full_assistant_response}")
+        logger.info(f"full_assistant_response:{full_assistant_response[:5]}")
     def _build_messages(self,history:list[MemoryItem],new_message:str):
         messages=[]
         for msg in history:
