@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, Cookie, Depends,HTTPException, Body, Response
 from fastapi.responses import StreamingResponse
 from src.api.deps import get_agent_manager
@@ -14,6 +14,7 @@ from src.sub_agents.subagent_manager import SubAgentManager
 from src.runtime.message_queue import QueueRequest
 import json
 import uuid
+import asyncio
 from loguru import logger
 
 # 创建路由实例（v1版本）
@@ -216,14 +217,16 @@ async def chat_stream(
     response: Response,
     message: str = Body(..., embed=False, description="用户消息内容"),
     agent_id: str = Body("main", description="Agent ID"),
-    session_id: Optional[str] = Body(None, description="Client session_id"),
     raw_session_id: Optional[str] = Cookie(None, alias="chat_session_id"),
+    session_id: Optional[str] = Body(None, description="Client session_id"),
     session_manager: SessionManager = Depends(get_session_manager),
     message_queue_manager: MessageQueueManager = Depends(get_message_queue_manager),
     agent_manager: AgentManager = Depends(get_agent_manager),
 ):
+    logger.info("流式请求调用链")
     message = message.strip()
     if not message:
+        logger.warning(f"流式接口输入为空,session_id={raw_session_id}")
         raise HTTPException(status_code=400, detail="Message is empty")
 
     incoming_session_id = session_id or raw_session_id
@@ -232,27 +235,36 @@ async def chat_stream(
         response=response,
     )
 
-    # v1: 流式只允许在空闲 session 上执行，避免和队列并发冲突
-    runtime = message_queue_manager.get_runtime(resolved_session_id)
-    if runtime.is_busy:
-        raise HTTPException(
-            status_code=409,
-            detail="Session is busy. Use /chat (non-stream) to queue.",
-        )
+    req_id=uuid.uuid4().hex
+    event_q:asyncio.Queue=asyncio.Queue()
 
-    async def generate():
-        try:
-            async for event in agent_manager.astream(
-                message=message,
-                session_id=resolved_session_id,
-                agent_id=agent_id,
-            ):
-                yield json.dumps(event, ensure_ascii=False) + "\n"
-        except Exception as e:
-            yield json.dumps({"type": "error", "error": str(e)}, ensure_ascii=False) + "\n"
+    request=QueueRequest(
+        request_id=req_id,
+        message=message,
+        agent_id=agent_id,
+        session_id=resolved_session_id,
+        stream=True,
+        event_queue=event_q
+    )
 
+    #获取runtime管理器
+    await message_queue_manager.submit(request)
+
+    async def event_generator():
+        yield json.dumps({"type": "meta", "request_id": req_id}, ensure_ascii=False) + "\n"
+        
+        while True:
+            event=await event_q.get()
+            yield json.dumps(
+                event,ensure_ascii=False
+            )+'\n'
+            if event.get("type") in {"done","error","aborted"}:
+                break
     return StreamingResponse(
-        generate(),
+        event_generator(),
         media_type="text/plain",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        headers={
+            'Cache-Control':"no-cache",
+            'Connection':"keep-alive"
+        }
     )

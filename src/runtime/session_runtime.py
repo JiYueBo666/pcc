@@ -11,6 +11,7 @@ class QueueRequest:
     agent_id: str
     session_id: str
     stream: bool = False
+    event_queue:Optional[asyncio.Queue] = None
 
 @dataclass
 class SessionRuntime:

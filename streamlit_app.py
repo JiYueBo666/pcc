@@ -26,6 +26,13 @@ def init_state() -> None:
         st.session_state.use_stream = False
 
 
+def _sync_session_id_from_response(data: dict) -> None:
+    sid = (data.get("data") or {}).get("session_id")
+    if sid:
+        st.session_state.backend_session_id = sid
+        st.session_state.last_session_id = sid
+
+
 def send_chat(message: str, agent_id: str) -> dict:
     payload = {
         "message": message,
@@ -40,12 +47,7 @@ def send_chat(message: str, agent_id: str) -> dict:
     )
     resp.raise_for_status()
     data = resp.json()
-
-    sid = (data.get("data") or {}).get("session_id")
-    if sid:
-        st.session_state.backend_session_id = sid
-        st.session_state.last_session_id = sid
-
+    _sync_session_id_from_response(data)
     return data
 
 
@@ -55,19 +57,22 @@ def send_chat_stream(message: str, agent_id: str):
         "agent_id": agent_id,
         "session_id": st.session_state.backend_session_id,
     }
+
     resp = st.session_state.session.post(
         f"{st.session_state.api_base}/chat/stream",
         json=payload,
         stream=True,
-        timeout=300,
+        timeout=(10, None),  # connect timeout 10s, read no-timeout for long streams
+        headers={"Accept": "text/plain"},
     )
 
     if resp.status_code == 409:
-        raise RuntimeError("Session is busy. Please switch off stream mode and send again (queued).")
+        raise RuntimeError("Session is busy. Please switch off stream mode and use queued mode.")
 
     resp.raise_for_status()
 
-    for line in resp.iter_lines(decode_unicode=True):
+    # 关键：小 chunk 减少缓冲，尽量及时拿到一行事件
+    for line in resp.iter_lines(chunk_size=1, decode_unicode=True):
         if not line:
             continue
         try:
@@ -166,19 +171,50 @@ if user_input:
         try:
             if st.session_state.use_stream:
                 assistant_text = ""
+                queued_hint_shown = False
+
                 for event in send_chat_stream(user_input, st.session_state.agent_id):
                     et = event.get("type")
+
+                    if et == "meta":
+                        continue
+
+                    if et == "queued":
+                        queued_hint_shown = True
+                        pos = event.get("position")
+                        msg = event.get("message", "Queued...")
+                        placeholder.markdown(f"Queued... position={pos}\n\n{msg}")
+                        continue
+
                     if et == "token":
                         assistant_text += event.get("content", "")
                         placeholder.markdown(assistant_text if assistant_text else "_")
-                    elif et == "error":
+                        continue
+
+                    if et == "tool_start" or et == "tool_end":
+                        # 可选：调试显示工具事件
+                        continue
+
+                    if et == "error":
                         raise RuntimeError(event.get("error", "stream error"))
-                    elif et == "done":
+
+                    if et == "aborted":
+                        assistant_text = event.get("content", "") or assistant_text
                         break
 
-                content = assistant_text if assistant_text else "_No response_"
-                placeholder.markdown(content)
-                st.session_state.messages.append({"role": "assistant", "content": content})
+                    if et == "done":
+                        done_content = event.get("content", "")
+                        if done_content and not assistant_text:
+                            assistant_text = done_content
+                        break
+
+                if not assistant_text and queued_hint_shown:
+                    assistant_text = "Queued request finished with empty output."
+                elif not assistant_text:
+                    assistant_text = "_No response_"
+
+                placeholder.markdown(assistant_text)
+                st.session_state.messages.append({"role": "assistant", "content": assistant_text})
 
             else:
                 result = send_chat(user_input, st.session_state.agent_id)

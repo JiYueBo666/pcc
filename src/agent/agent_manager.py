@@ -49,10 +49,11 @@ class AgentManager:
 
         # 构建系统提示词
         # TODO: 获取系统提示词
-        system_prompt = "You are a helpful assistant with access to tools."
+        system_prompt = "You are a helpful assistant with access to tools.你的名字是：贾维斯"
 
         #获取历史记录
         history=list(await self.memory_manager.get_memories(session_id=session_id))
+        logger.info(f"获取的历史聊天记录长度：{len(history)}")
 
         # 构建消息列表
         messages = self._build_messages(history,message)

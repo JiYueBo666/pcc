@@ -7,14 +7,17 @@ from src.memory.memory_manager import MemoryManager  # 从memory模块导入Memo
 from src.runtime.session_runtime import QueueRequest,SessionRuntime  # 从runtime模块导入QueueRequest和SessionRuntime类，用于处理会话运行时
 
 class MessageQueueManager:
+    '''
+    消息队列管理器，为会话保存独立的SessionRuntime
+    '''
     def __init__(self,agent_manager:AgentManager,memory_manager:MemoryManager):
         """
         初始化MessageQueueManager类
         :param agent_manager: AgentManager实例，用于管理代理
         :param memory_manager: MemoryManager实例，用于管理内存
         """
-        self.agent_manager=agent_manager  # 存储AgentManager实例
-        self.memory_manager=memory_manager  # 存储MemoryManager实例
+        self.agent_manager=agent_manager
+        self.memory_manager=memory_manager 
         self._runtimes:Dict[str,SessionRuntime]={}  # 存储会话运行时的字典，键为session_id
         self._request_results:Dict[str,dict]={}
     def get_runtime(self,session_id:str):
@@ -29,6 +32,14 @@ class MessageQueueManager:
             self._runtimes[session_id]=runtime  # 存储到字典中
         return runtime  # 返回运行时实例
 
+
+    async def _emit(self,request:QueueRequest,event:dict):
+        '''
+        将生成好的数据块放入队列
+        '''
+        if request.stream and request.event_queue is not None:
+            await request.event_queue.put(event)  # 将事件放入事件队列中
+    
     async def submit(self,request:QueueRequest):
         """
         提交请求到消息队列
@@ -36,6 +47,12 @@ class MessageQueueManager:
         :return: 包含请求处理结果的字典
         """
         runtime=self.get_runtime(request.session_id)  # 获取或创建运行时实例
+
+        self._set_request_state(
+            request.request_id,
+            'pending',
+            session_id=request.session_id
+        )
 
         async with runtime.lock:
             if runtime.is_busy:  # 检查运行时是否忙碌
@@ -47,15 +64,22 @@ class MessageQueueManager:
                     position=len(runtime.pending_requests),
                 )
                 logger.info(f"会话忙，插入请求队列,位置:{len(runtime.pending_requests)}")
-                return {  # 返回队列状态信息
-                    'type':'queued',
+                await self._emit(
+                    request,
+                    {
+                        "type": "queued",
+                        'request_id':request.request_id,
+                        'position':len(runtime.pending_requests),
+                        'message':"请求入队，因为会话忙碌"
+                    },
+                )
+                return {
+                    'type': 'queued',
                     'session_id':request.session_id,
                     'position':len(runtime.pending_requests),
-                    'request_id':request.request_id,
-                    'message':'Request queued because this session is busy'
+                    'message':"请求入队，因为会话忙碌"
                 }
         logger.info("会话空闲，运行请求")
-        self._set_request_state(request.request_id, "running", session_id=request.session_id)
         return await self._run_request(runtime,request)  # 如果不忙碌，直接运行请求
     async def abort(self,session_id:str):
         """
@@ -65,48 +89,61 @@ class MessageQueueManager:
         """
         runtime=self.get_runtime(session_id)  # 获取或创建运行时实例
 
-        cleared_queue=len(runtime.pending_requests)  # 记录已清除的队列长度
-        # 清空待处理请求队列
-        runtime.pending_requests.clear()
-        if runtime.active_task is None or runtime.active_task.done():
-            return {
-                "aborted": False,
-                "session_id": session_id,
-                "cleared_queue": cleared_queue,
-                "partial_output": "",
-            }
-        runtime.user_aborted=True  # 标记用户中止
-        runtime.active_task.cancel()  # 取消当前任务
+        async with runtime.lock:
+            cleared_queue=len(runtime.pending_requests)
 
+            #通知排队中的streamlit请求被取消
+            while runtime.pending_requests:
+                req=runtime.pending_requests.popleft()
+                self._set_request_state(
+                    req.request_id,
+                    'aborted',
+                    session_id=req.session_id,
+                    reason='用户终止'
+                )
+
+                await self._emit(
+                    req,
+                    {
+                        "type": "aborted",
+                        'request_id':req.request_id,
+                        'reason':"请求被取消"
+                    }
+                )
+            if runtime.active_task is None or runtime.active_task.done():
+                return {
+                    "aborted": False,
+                    "session_id": session_id,
+                    "cleared_queue": cleared_queue,
+                    "partial_output": "",
+                }
+            runtime.user_aborted=True
+            runtime.active_task.cancel()
         try:
-            result=await runtime.active_task
+            await runtime.active_task
         except asyncio.CancelledError:
-            result={
-                'type':"aborted",
-                'session_id':session_id,
-                'content':runtime.partial_output,
-                'reason':'stopped_by_user'
-            }
+            pass
         return {
-            'aborted':True,
-            'session_id':session_id,
-            'cleared_queue':cleared_queue,
-            'partial_output':runtime.partial_output,
-            'result':result
+            "aborted": True,
+            "session_id": session_id,
+            "cleared_queue": cleared_queue,
+            "partial_output": runtime.partial_output,
         }
+
+
     async def _run_request(
             self,runtime:SessionRuntime,
             request:QueueRequest
     ):
         runtime.is_busy=True
-
-        self._set_request_state(
-    request.request_id,
-    "running",
-    session_id=request.session_id,
-)
         runtime.partial_output=''
         runtime.user_aborted=False
+
+        self._set_request_state(
+            request.request_id,
+            "running",
+            session_id=request.session_id,
+        )
 
         #嵌套函数，可以直接访问外部函数变量
         async def runner():
@@ -117,62 +154,117 @@ class MessageQueueManager:
                     agent_id=request.agent_id,
                 ):
                     event_type=event.get('type')
+
                     if event_type == "token":
-                            runtime.partial_output += event.get("content", "")
+                        token=event.get("content", "")
+                        runtime.partial_output += token
+                        await self._emit(
+                            request,
+                            {
+                                "type": "token",
+                                'content':token,
+                                'request_id':request.request_id,
+                            }
+                        )
+                    elif event_type=='tool_start':
+                        await self._emit(
+                            request,
+                            {
+                                'type':'tool_start',
+                                'request_id':request.request_id,
+                                'tool_name':event.get('tool_name'),
+                                'tool_input':event.get('tool_input'),
+                            }
+                        )
+                    elif event_type=='tool_end':
+                        await self._emit(
+                            request,
+                            {
+                                'type':'tool_end',
+                                'request_id':request.request_id,
+                                'tool_output':event.get('tool_output'),
+                            }
+                        )
 
                     elif event_type == "error":
+                        err=event.get('error','UnKnow error')
                         self._set_request_state(
                         request.request_id,
                         "error",
                         session_id=request.session_id,
-                        error=event.get("error", "Unknown error"),
+                        error=err,
                         partial_output=runtime.partial_output,
                     )
+                        await self._emit(
+                            request,
+                            {
+                                "type": "error",
+                                'request_id':request.request_id,
+                                'error':err,
+                                'partial_output':runtime.partial_output,
+                            }
+                        )
 
                         return {
                                 "type": "error",
                                 "session_id": request.session_id,
-                                "error": event.get("error", "Unknown error"),
+                                "error": err,
                                 "partial_output": runtime.partial_output,
                             }
+                    
                 self._set_request_state(
                 request.request_id,
                 "done",
                 session_id=request.session_id,
                 content=runtime.partial_output,
             )
-
+                await self._emit(
+                        request,
+                        {
+                            "type": "done",
+                            'request_id':request.request_id,
+                            'content':runtime.partial_output,
+                        }
+                )
                 return {
                         "type": "done",
                         "session_id": request.session_id,
                         "content": runtime.partial_output,
                     }
             except asyncio.CancelledError:
-                self._set_request_state(
-                request.request_id,
-                "aborted",
-                session_id=request.session_id,
-                content=runtime.partial_output,
-                reason="stopped_by_user",
-            )
-
                 if runtime.partial_output.strip():
                     await self.memory_manager.add_memory(
                         content=runtime.partial_output,
                         session_id=request.session_id,
-                        role='assistant',
+                        role="assistant",
                     )
+
+                self._set_request_state(
+                    request.request_id,
+                    "aborted",
+                    session_id=request.session_id,
+                    content=runtime.partial_output,
+                    reason="stopped_by_user",
+                )
+                await self._emit(
+                    request,
+                    {
+                        "type": "aborted",
+                        "request_id": request.request_id,
+                        "content": runtime.partial_output,
+                        "reason": "stopped_by_user",
+                    },
+                )
                 return {
                     "type": "aborted",
                     "session_id": request.session_id,
                     "content": runtime.partial_output,
-                    "reason": "stopped_by_user",   
+                    "reason": "stopped_by_user",
                 }
         
         task=asyncio.create_task(runner())
-
+        
         runtime.active_task=task
-
         try:
             result=await task
             return result
@@ -196,8 +288,12 @@ class MessageQueueManager:
                         self._drain_queue(runtime)  # 调用_drain_queue方法，并将runtime作为参数传入
                     )
     async def _drain_queue(self, runtime: SessionRuntime) -> None:
-        while runtime.pending_requests and not runtime.is_busy:
-            next_request = runtime.pending_requests.popleft()
+        while True:
+            async with runtime.lock:
+                if runtime.is_busy or not runtime.pending_requests:
+                    return
+                next_request = runtime.pending_requests.popleft()
+
             await self._run_request(runtime, next_request)
     def _set_request_state(self, request_id: str, state: str, **extra) -> None:
         self._request_results[request_id] = {"state": state, **extra}
