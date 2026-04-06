@@ -49,7 +49,7 @@ class AgentManager:
 
         # 构建系统提示词
         # TODO: 获取系统提示词
-        system_prompt = "You are a helpful assistant with access to tools.你的名字是：贾维斯"
+        system_prompt = "You are a helpful assistant with access to tools.你的名字是：郭宇欣"
 
         #获取历史记录
         history=list(await self.memory_manager.get_memories(session_id=session_id))
@@ -131,7 +131,7 @@ class AgentManager:
                 session_id=session_id,
                 role="assistant"
             )
-        logger.info(f"full_assistant_response:{full_assistant_response[:5]}")
+        logger.info(f"助手本轮生成了完整回复,会话ID:{session_id}")
     def _build_messages(self,history:list[MemoryItem],new_message:str):
         messages=[]
         for msg in history:

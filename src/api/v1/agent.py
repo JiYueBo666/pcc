@@ -223,18 +223,25 @@ async def chat_stream(
     message_queue_manager: MessageQueueManager = Depends(get_message_queue_manager),
     agent_manager: AgentManager = Depends(get_agent_manager),
 ):
+    
+
     logger.info("流式请求调用链")
+    #接口空判断
     message = message.strip()
     if not message:
         logger.warning(f"流式接口输入为空,session_id={raw_session_id}")
         raise HTTPException(status_code=400, detail="Message is empty")
 
+    #解析会话id
     incoming_session_id = session_id or raw_session_id
     resolved_session_id = await session_manager.get_session_id(
         session_id=incoming_session_id,
         response=response,
     )
-
+    logger.info(
+    f"session source={'body' if session_id else 'cookie' if raw_session_id else 'new'}"
+)
+    #获取请求ID
     req_id=uuid.uuid4().hex
     event_q:asyncio.Queue=asyncio.Queue()
 
@@ -247,19 +254,23 @@ async def chat_stream(
         event_queue=event_q
     )
 
-    #获取runtime管理器
-    await message_queue_manager.submit(request)
+    #提交到runtime
+    submit_task=asyncio.create_task(message_queue_manager.submit(request))
 
     async def event_generator():
-        yield json.dumps({"type": "meta", "request_id": req_id}, ensure_ascii=False) + "\n"
-        
-        while True:
-            event=await event_q.get()
-            yield json.dumps(
-                event,ensure_ascii=False
-            )+'\n'
-            if event.get("type") in {"done","error","aborted"}:
-                break
+        try:
+            while True:
+                event=await event_q.get()
+                yield json.dumps(event,ensure_ascii=False)+'\n'
+                if event.get('type') in {'done','error','abort'}:
+                    break
+            if not submit_task.done():
+                await submit_task
+            else:
+                _=submit_task.result()
+        finally:
+            if not submit_task.done():
+                submit_task.cancel()
     return StreamingResponse(
         event_generator(),
         media_type="text/plain",
