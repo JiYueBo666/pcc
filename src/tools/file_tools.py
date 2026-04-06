@@ -26,10 +26,10 @@ def _read_file(path: str) -> str:
         
         # 3. 安全检查：防止路径穿越攻击
         # 确保解析后的绝对路径仍然在允许的基础目录下
-        try:
-            target_path.relative_to(ALLOWED_BASE_DIR)
-        except ValueError:
-            return f"错误：拒绝访问路径 '{path}'。访问被限制在项目目录内。"
+        # try:
+        #     target_path.relative_to(ALLOWED_BASE_DIR)
+        # except ValueError:
+        #     return f"错误：拒绝访问路径 '{path}'。访问被限制在项目目录内。"
 
         # 4. 检查文件是否存在
         if not target_path.exists():
