@@ -83,14 +83,18 @@ def send_chat_stream(message: str, agent_id: str):
 
 
 def abort_chat() -> dict:
+    url = f"{st.session_state.api_base}/abort"
+
+    # 🔥 关键：不要传 json！后端优先读 Cookie！
+    # 你传了反而没用！
     resp = st.session_state.session.post(
-        f"{st.session_state.api_base}/abort",
-        json={"session_id": st.session_state.backend_session_id},
+        url=url,
+        # 🔥 把 json 这一行删掉！完全删掉！
+        # json={"session_id": ...},
         timeout=60,
     )
     resp.raise_for_status()
     return resp.json()
-
 
 def poll_result(request_id: str, timeout_sec: int = 120) -> dict:
     start = time.time()
